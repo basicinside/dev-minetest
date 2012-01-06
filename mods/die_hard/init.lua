@@ -14,7 +14,7 @@ minetest.register_on_dieplayer(function(player)
                         print(inventorylist[i])
                         local bnumbeg, bnumend=string.find(inventorylist[i], '" ')
                         local oldvalue=tonumber(string.sub(inventorylist[i], bnumend))
-                        oldvalue=math.random(0,(oldvalue/3)-1)
+                        oldvalue=math.random(0,(oldvalue/3))
                         local newstring=string.sub(inventorylist[i], 1, bnumend)
                         newstring=(newstring..tostring(oldvalue))
                         if oldvalue == 0 then
