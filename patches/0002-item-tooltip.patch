@@ -1,0 +1,88 @@
+diff --git a/src/guiInventoryMenu.cpp b/src/guiInventoryMenu.cpp
+index 552e10d..84367b9 100644
+--- a/src/guiInventoryMenu.cpp
++++ b/src/guiInventoryMenu.cpp
+@@ -106,7 +106,7 @@ void drawInventoryItem(video::IVideoDriver *driver,
+ GUIInventoryMenu::~GUIInventoryMenu()
+ {
+ 	removeChildren();
+-
++	m_tooltip->remove(); // Item Description
+ 	if(m_selected_item)
+ 		delete m_selected_item;
+ }
+@@ -195,6 +195,7 @@ void GUIInventoryMenu::regenerateGui(v2u32 screensize)
+ 		const wchar_t *text =
+ 		L"Left click: Move all items, Right click: Move single item";
+ 		Environment->addStaticText(text, rect, false, true, this, 256);
++		m_tooltip = Environment->addStaticText(L"", core::rect<s32>(),true,false,0,-1, true);
+ 	}
+ }
+ 
+@@ -282,6 +283,24 @@ void GUIInventoryMenu::drawList(const ListDrawSpec &s, ITextureSource *tsrc)
+ 		{
+ 			drawInventoryItem(driver, font, item,
+ 					rect, &AbsoluteClippingRect, tsrc);
++			if (rect.isPointInside(m_pointer)) 
++			{
++        		//get hovered item string name for tooltip
++				std::string itemstring;
++				itemstring = item->getItemString();
++				int pos = itemstring.find_first_of(':') + 1;
++				int pos_;
++				itemstring = itemstring.substr(pos, itemstring.find_last_of('"')-pos);
++				pos_ = itemstring.find_first_of('_');
++				while (pos_ != std::string::npos) {
++					itemstring[pos_] = ' ';
++					pos_ = itemstring.find_first_of('_', pos_ +1);
++				}
++				//need to convert the string into a wstring for a irrlicht button
++				std::wstring temp(itemstring.length(),L' ');
++				std::copy(itemstring.begin(), itemstring.end(), temp.begin());
++				m_hovered_item_name = temp;
++      		}
+ 		}
+ 
+ 	}
+@@ -296,6 +315,8 @@ void GUIInventoryMenu::drawMenu()
+ 	
+ 	video::SColor bgcolor(140,0,0,0);
+ 	driver->draw2DRectangle(bgcolor, AbsoluteRect, &AbsoluteClippingRect);
++	
++	m_hovered_item_name = L"";
+ 
+ 	/*
+ 		Draw items
+@@ -307,6 +328,19 @@ void GUIInventoryMenu::drawMenu()
+ 		drawList(s, m_tsrc);
+ 	}
+ 
++	if (m_hovered_item_name != L"") 
++	{
++		m_tooltip->setVisible(true);
++		this->bringToFront(m_tooltip);
++		int size = m_hovered_item_name.size();
++		if (size < 5) size = 5;
++		core::rect<s32> rr(m_pointer.X + 10,m_pointer.Y + 10,m_pointer.X + (size * 10) + 10,m_pointer.Y + 50);
++		m_tooltip->setRelativePosition(rr);
++		m_tooltip->setText(m_hovered_item_name.c_str());
++	} else {
++		m_tooltip->setVisible(false);
++	}
++
+ 	/*
+ 		Call base class
+ 	*/
+diff --git a/src/guiInventoryMenu.h b/src/guiInventoryMenu.h
+index 3592686..8fef170 100644
+--- a/src/guiInventoryMenu.h
++++ b/src/guiInventoryMenu.h
+@@ -162,6 +162,8 @@ class GUIInventoryMenu : public GUIModalMenu
+ 
+ 	ItemSpec *m_selected_item;
+ 	v2s32 m_pointer;
++	gui::IGUIStaticText* m_tooltip;	
++	std::wstring m_hovered_item_name;
+ };
+ 
+ #endif
