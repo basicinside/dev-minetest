@@ -1,0 +1,84 @@
+diff --git a/data/builtin.lua b/data/builtin.lua
+index b2ce968..1046e93 100644
+--- a/data/builtin.lua
++++ b/data/builtin.lua
+@@ -435,6 +435,7 @@ minetest.registered_on_dignodes, minetest.register_on_dignode = make_registratio
+ minetest.registered_on_punchnodes, minetest.register_on_punchnode = make_registration()
+ minetest.registered_on_generateds, minetest.register_on_generated = make_registration()
+ minetest.registered_on_newplayers, minetest.register_on_newplayer = make_registration()
++minetest.registered_on_dieplayers, minetest.register_on_dieplayer = make_registration()
+ minetest.registered_on_respawnplayers, minetest.register_on_respawnplayer = make_registration()
+ 
+ -- END
+diff --git a/data/mods/give_initial_stuff/init.lua b/data/mods/give_initial_stuff/init.lua
+index e52784d..d374c8b 100644
+--- a/data/mods/give_initial_stuff/init.lua
++++ b/data/mods/give_initial_stuff/init.lua
+@@ -10,3 +10,6 @@ minetest.register_on_newplayer(function(player)
+ 	end
+ end)
+ 
++
++
++
+diff --git a/src/scriptapi.cpp b/src/scriptapi.cpp
+index 35b5973..546a61e 100644
+--- a/src/scriptapi.cpp
++++ b/src/scriptapi.cpp
+@@ -3638,6 +3638,32 @@ void scriptapi_on_newplayer(lua_State *L, ServerActiveObject *player)
+ 		// value removed, keep key for next iteration
+ 	}
+ }
++
++void scriptapi_on_dieplayer(lua_State *L, ServerActiveObject *player)
++{
++    realitycheck(L);
++    assert(lua_checkstack(L, 20));
++    StackUnroller stack_unroller(L);
++	
++    // Get minetest.registered_on_dieplayers
++    lua_getglobal(L, "minetest");
++    lua_getfield(L, -1, "registered_on_dieplayers");
++    luaL_checktype(L, -1, LUA_TTABLE);
++    int table = lua_gettop(L);
++    // Foreach
++    lua_pushnil(L);
++    while(lua_next(L, table) != 0){
++        // key at index -2 and value at index -1
++       luaL_checktype(L, -1, LUA_TFUNCTION);
++        // Call function
++       objectref_get_or_create(L, player);
++        if(lua_pcall(L, 1, 0, 0))
++            script_error(L, "error: %s", lua_tostring(L, -1));
++        // value removed, keep key for next iteration
++    }
++}
++
++
+ bool scriptapi_on_respawnplayer(lua_State *L, ServerActiveObject *player)
+ {
+ 	realitycheck(L);
+diff --git a/src/scriptapi.h b/src/scriptapi.h
+index d107b15..af8afa3 100644
+--- a/src/scriptapi.h
++++ b/src/scriptapi.h
+@@ -62,6 +62,7 @@ void scriptapi_environment_on_punchnode(lua_State *L, v3s16 p, MapNode node,
+ 
+ /* misc */
+ void scriptapi_on_newplayer(lua_State *L, ServerActiveObject *player);
++void scriptapi_on_dieplayer(lua_State *L, ServerActiveObject *player);
+ bool scriptapi_on_respawnplayer(lua_State *L, ServerActiveObject *player);
+ void scriptapi_get_creative_inventory(lua_State *L, ServerRemotePlayer *player);
+ 
+diff --git a/src/server.cpp b/src/server.cpp
+index 8bf9eee..010a214 100644
+--- a/src/server.cpp
++++ b/src/server.cpp
+@@ -4522,6 +4522,7 @@ void Server::HandlePlayerHP(Player *player, s16 damage)
+ 	player->hp = 0;
+ 	
+ 	//TODO: Throw items around
++	scriptapi_on_dieplayer(m_lua, srp);
+ 	
+ 	// Handle players that are not connected
+ 	if(player->peer_id == PEER_ID_INEXISTENT){
